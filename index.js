@@ -86,7 +86,7 @@ async function run() {
         })
 
         // endpoint for inserting a new user and giving the user a verified token and prevent inserting for previous user into database 
-        app.put('/user/:email', verifyJWT, async (req, res) => {
+        app.put('/user/:email', async (req, res) => {
             const email = req.params.email;
             const user = req.body;
             const filter = { email: email };
