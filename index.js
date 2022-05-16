@@ -58,8 +58,27 @@ async function run() {
             }
         });
 
+        // endpoint for deleting a user by an admin 
+        app.delete('/user/admin/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const requester = req.decoded.email;
+            const requesterAccount = await userCollection.findOne({ email: requester });
+            if (requesterAccount.role === 'admin') {
+                const query = { email: email, role: undefined };
+                const result = await userCollection.deleteOne(query);
+                if (result.deletedCount === 1) {
+                    res.send({ success: true });
+                } else {
+                    res.send({ success: false });
+                }
+            }
+            else {
+                return res.status(403).send({ message: 'Forbidden access' });
+            }
+        });
+
         // the endpoint is using in useAdmin component in client side for checking if a user is admin 
-        app.get('/admin/:email', async (req, res) => {
+        app.get('/admin/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
             const user = await userCollection.findOne({ email: email });
             const isAdmin = user.role === 'admin';
@@ -67,7 +86,7 @@ async function run() {
         })
 
         // endpoint for inserting a new user and giving the user a verified token and prevent inserting for previous user into database 
-        app.put('/user/:email', async (req, res) => {
+        app.put('/user/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
             const user = req.body;
             const filter = { email: email };
@@ -81,7 +100,7 @@ async function run() {
         });
 
         // endpoint for getting all the users to display in admin panel 
-        app.get('/user', async (req, res) => {
+        app.get('/user', verifyJWT, async (req, res) => {
             const users = await userCollection.find({}).toArray();
             res.send(users);
         })
@@ -108,7 +127,7 @@ async function run() {
 
         // endpoint for getting the treatments with available slots for a particular date 
         app.get('/available', async (req, res) => {
-            const date = req.query.date || 'May 15, 2022';
+            const date = req.query.date;
             const treatments = await treatmentCollection.find({}).toArray();
             const query = { date: date };
             const bookings = await bookingCollection.find(query).toArray();
