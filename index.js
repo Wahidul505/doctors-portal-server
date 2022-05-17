@@ -39,23 +39,30 @@ async function run() {
         const bookingCollection = client.db('doctors_portal').collection('bookings');
         // collection for both all users and admins. Where admins has an extra property => 'role: admin' 
         const userCollection = client.db('doctors_portal').collection('users');
+        // collection for all doctors 
+        const doctorCollection = client.db('doctors_portal').collection('doctors');
 
-        // endpoint for make an user an admin  
-        app.put('/user/admin/:email', verifyJWT, async (req, res) => {
-            const email = req.params.email;
+        // middleware for verifying admin 
+        async function verifyAdmin(req, res, next) {
             const requester = req.decoded.email;
             const requesterAccount = await userCollection.findOne({ email: requester });
             if (requesterAccount.role === 'admin') {
-                const filter = { email: email };
-                const updateDoc = {
-                    $set: { role: 'admin' },
-                };
-                const result = await userCollection.updateOne(filter, updateDoc);
-                return res.send(result);
+                next();
             }
             else {
                 return res.status(403).send({ message: 'Forbidden access' });
             }
+        }
+
+        // endpoint for make an user an admin  
+        app.put('/user/admin/:email', verifyJWT, verifyAdmin, async (req, res) => {
+            const email = req.params.email;
+            const filter = { email: email };
+            const updateDoc = {
+                $set: { role: 'admin' },
+            };
+            const result = await userCollection.updateOne(filter, updateDoc);
+            return res.send(result);
         });
 
         // endpoint for deleting a user by an admin 
@@ -105,6 +112,13 @@ async function run() {
             res.send(users);
         })
 
+        // endpoint for getting all the treatments name 
+        app.get('/treatment', async (req, res) => {
+            const treatments = await treatmentCollection.find({}).project({ name: 1 }).toArray();
+            res.send(treatments);
+        })
+
+
         // endpoint for insert a treatment booking into database 
         app.post('/booking', async (req, res) => {
             const booking = req.body;
@@ -139,6 +153,28 @@ async function run() {
             })
             res.send(treatments);
         });
+
+        // to add a doctor to database 
+        app.post('/doctor', verifyJWT, verifyAdmin, async (req, res) => {
+            const doctor = req.body;
+            const result = await doctorCollection.insertOne(doctor);
+            res.send(result);
+        });
+
+        // to get all the doctors 
+        app.get('/doctor', verifyJWT, verifyAdmin, async (req, res) => {
+            const doctors = await doctorCollection.find().toArray();
+            res.send(doctors);
+        })
+
+        // to delete a doctor 
+        app.delete('/doctor/:email', verifyJWT, verifyAdmin, async (req, res) => {
+            const email = req.params.email;
+            const filter = { email: email };
+            const result = await doctorCollection.deleteOne(filter);
+            res.send(result);
+        })
+
 
 
     }
