@@ -43,6 +43,8 @@ async function run() {
         const userCollection = client.db('doctors_portal').collection('users');
         // collection for all doctors 
         const doctorCollection = client.db('doctors_portal').collection('doctors');
+        // collection for all payment of booking 
+        const paymentCollection = client.db('doctors_portal').collection('payments');
 
         // middleware for verifying admin 
         async function verifyAdmin(req, res, next) {
@@ -148,6 +150,22 @@ async function run() {
             res.send(booking);
         });
 
+        // updating booking collection after payment and storing payment info into new collection name paymentCollection 
+        app.patch('/booking/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id;
+            const payment = req.body;
+            const filter = { _id: ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    paid: true,
+                    transactionId: payment.transactionId
+                },
+            };
+            const paidBooking = await paymentCollection.insertOne(payment);
+            const updatedBooking = await bookingCollection.updateOne(filter, updateDoc);
+            res.send({ paidBooking, updatedBooking });
+        })
+
         // endpoint for getting the treatments with available slots for a particular date 
         app.get('/available', async (req, res) => {
             const date = req.query.date;
@@ -185,7 +203,7 @@ async function run() {
         });
 
         // payment method 
-        app.post("/create-payment-intent", async (req, res) => {
+        app.post("/create-payment-intent", verifyJWT, async (req, res) => {
             const { price } = req.body;
             const amount = price * 100;
 
