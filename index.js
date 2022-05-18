@@ -1,15 +1,17 @@
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const app = express();
 const port = process.env.PORT || 5000;
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 
 
 // middleware 
 app.use(cors());
 app.use(express.json());
+
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.nap5w.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
@@ -116,8 +118,7 @@ async function run() {
         app.get('/treatment', async (req, res) => {
             const treatments = await treatmentCollection.find({}).project({ name: 1 }).toArray();
             res.send(treatments);
-        })
-
+        });
 
         // endpoint for insert a treatment booking into database 
         app.post('/booking', async (req, res) => {
@@ -137,7 +138,15 @@ async function run() {
             const query = { patient: patient };
             const bookings = await bookingCollection.find(query).toArray();
             res.send(bookings);
-        })
+        });
+
+        // to get a particular booking of a particular user for payment of that particular booking 
+        app.get('/booking/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) };
+            const booking = await bookingCollection.findOne(query);
+            res.send(booking);
+        });
 
         // endpoint for getting the treatments with available slots for a particular date 
         app.get('/available', async (req, res) => {
@@ -173,7 +182,22 @@ async function run() {
             const filter = { email: email };
             const result = await doctorCollection.deleteOne(filter);
             res.send(result);
-        })
+        });
+
+        // payment method 
+        app.post("/create-payment-intent", async (req, res) => {
+            const { price } = req.body;
+            const amount = price * 100;
+
+            // Create a PaymentIntent with the order amount and currency
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: "usd",
+                payment_method_types: ["card"],
+            });
+
+            res.send({ clientSecret: paymentIntent.client_secret });
+        });
 
 
 
