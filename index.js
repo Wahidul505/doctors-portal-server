@@ -70,21 +70,14 @@ async function run() {
         });
 
         // endpoint for deleting a user by an admin 
-        app.delete('/user/admin/:email', verifyJWT, async (req, res) => {
+        app.delete('/user/admin/:email', verifyJWT, verifyAdmin, async (req, res) => {
             const email = req.params.email;
-            const requester = req.decoded.email;
-            const requesterAccount = await userCollection.findOne({ email: requester });
-            if (requesterAccount.role === 'admin') {
-                const query = { email: email, role: undefined };
-                const result = await userCollection.deleteOne(query);
-                if (result.deletedCount === 1) {
-                    res.send({ success: true });
-                } else {
-                    res.send({ success: false });
-                }
-            }
-            else {
-                return res.status(403).send({ message: 'Forbidden access' });
+            const query = { email: email, role: undefined };
+            const result = await userCollection.deleteOne(query);
+            if (result.deletedCount === 1) {
+                res.send({ success: true });
+            } else {
+                res.send({ success: false });
             }
         });
 
